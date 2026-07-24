@@ -1,6 +1,6 @@
 # Pulsar on Kind (OpenTofu)
 
-Deploys [Apache Pulsar](https://pulsar.apache.org/) in standalone mode onto the Kind cluster created by [opentofu-kind](../opentofu-kind).
+Deploys [Apache Pulsar](https://pulsar.apache.org/) in standalone mode onto the Kind cluster created by [opentofu-kind](https://github.com/danielnuriyev/opentofu-kind).
 
 ## Prerequisites
 
