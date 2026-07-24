@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pulsar
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulsar
+  namespace: pulsar
+  labels:
+    app: pulsar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pulsar
+  template:
+    metadata:
+      labels:
+        app: pulsar
+    spec:
+      containers:
+        - name: pulsar
+          image: apachepulsar/pulsar:4.2.3
+          command: ["bin/pulsar", "standalone", "--no-functions-worker"]
+          env:
+            - name: PULSAR_MEM
+              value: "-Xms256m -Xmx512m -XX:MaxDirectMemorySize=256m"
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 6650
+              name: binary
+          readinessProbe:
+            httpGet:
+              path: /admin/v2/clusters
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "768Mi"
+              cpu: "250m"
+            limits:
+              memory: "1536Mi"
+              cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulsar
+  namespace: pulsar
+  labels:
+    app: pulsar
+spec:
+  selector:
+    app: pulsar
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: binary
+      port: 6650
+      targetPort: 6650

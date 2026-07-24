@@ -1,0 +1,3 @@
+- Install Dekaf UI
+- Install Prometheus + Grafana
+- Deploy not in the standalonemode
