@@ -27,8 +27,8 @@ export KUBECONFIG=../opentofu-kind/.kubeconfig
 kubectl get pods -n pulsar
 
 # REST API
-kubectl port-forward -n pulsar svc/pulsar 8080:8080
-curl http://localhost:8080/admin/v2/clusters
+kubectl port-forward -n pulsar svc/pulsar 8083:8080
+curl http://localhost:8083/admin/v2/clusters
 ```
 
 ## Cleanup
