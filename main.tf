@@ -28,6 +28,7 @@ resource "null_resource" "pulsar" {
     command = <<-EOT
       set -euo pipefail
       test -f "${local.kubeconfig}" || { echo "Kubeconfig not found. Run tofu apply in opentofu-kind first."; exit 1; }
+      kubectl --kubeconfig="${local.kubeconfig}" get namespace minio >/dev/null || { echo "MinIO namespace not found. Run tofu apply in opentofu-minio first."; exit 1; }
       kubectl --kubeconfig="${local.kubeconfig}" apply -f "${path.module}/pulsar.yaml"
       kubectl --kubeconfig="${local.kubeconfig}" wait --for=condition=ready pod -l app=pulsar -n pulsar --timeout=300s
     EOT

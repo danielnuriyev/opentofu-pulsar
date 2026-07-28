@@ -3,6 +3,16 @@ kind: Namespace
 metadata:
   name: pulsar
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-credentials
+  namespace: pulsar
+type: Opaque
+stringData:
+  accesskey: admin
+  secretkey: password
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,10 +30,23 @@ spec:
       labels:
         app: pulsar
     spec:
+      initContainers:
+        - name: init-logs
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - mkdir -p /var/log/pulsar && chmod 777 /var/log/pulsar
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/pulsar
       containers:
         - name: pulsar
           image: apachepulsar/pulsar:4.2.3
-          command: ["bin/pulsar", "standalone", "--no-functions-worker"]
+          command:
+            - /bin/sh
+            - -c
+            - exec bin/pulsar standalone --no-functions-worker >> /var/log/pulsar/pulsar.log 2>&1
           env:
             - name: PULSAR_MEM
               value: "-Xms256m -Xmx512m -XX:MaxDirectMemorySize=256m"
@@ -32,6 +55,9 @@ spec:
               name: http
             - containerPort: 6650
               name: binary
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/pulsar
           readinessProbe:
             httpGet:
               path: /admin/v2/clusters
@@ -45,6 +71,54 @@ spec:
             limits:
               memory: "1536Mi"
               cpu: "1000m"
+        - name: log-sync
+          image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: accesskey
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: secretkey
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              until mc alias set minio http://minio.minio.svc.cluster.local:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                echo "waiting for minio"
+                sleep 5
+              done
+              mc mb minio/warehouse --ignore-existing
+              while true; do
+                for f in /var/log/pulsar/*; do
+                  [ -f "$f" ] || continue
+                  mc cp "$f" "minio/warehouse/logs/pulsar/${POD_NAME}/$(basename "$f")" || true
+                done
+                sleep 15
+              done
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/pulsar
+              readOnly: true
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: logs
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
